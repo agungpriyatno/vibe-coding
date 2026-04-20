@@ -1,22 +1,27 @@
 import { Elysia } from "elysia";
-import { PrismaClient } from "./generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg";
-
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-const prisma = new PrismaClient({ adapter });
+import { auth } from "./lib/auth";
 
 const app = new Elysia()
+  // Mount Better Auth handler
+  .all("/api/v1/auth/*", (ctx) => auth.handler(ctx.request))
+  
   .get("/", () => "Hello Elysia")
-  .get("/users", async () => {
-    try {
-      return await prisma.user.findMany();
-    } catch (error) {
-      console.error(error);
-      return { error: "Failed to fetch users" };
+  
+  // Example of a protected route using Better Auth API
+  .get("/api/v1/auth/profile", async ({ request }) => {
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session) {
+      return { error: "Unauthorized" };
     }
+    return {
+      user: session.user,
+      session: session.session,
+    };
   })
+  
+  // Example of edit profile (Better Auth handles this via /api/v1/auth/update-user)
+  // but we can add a wrapper if needed.
+  
   .listen(3000);
 
 console.log(
